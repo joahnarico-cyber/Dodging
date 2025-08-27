@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Typing Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(135deg, #000000, #1a1a1a);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: #f8f8f8;
+    }
+    #container {
+      width: 350px;
+      background: #121212;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(255, 20, 147, 0.3);
+      text-align: center;
+      animation: fadeIn 0.4s ease-in-out;
+    }
+    h2 { margin-bottom: 15px; color: #ff4da6; }
+    textarea, input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 2px solid #333;
+      background: #1e1e1e;
+      border-radius: 8px;
+      font-size: 16px;
+      color: #f8f8f8;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+    textarea:focus, input[type="text"]:focus {
+      border-color: #ff4da6;
+      box-shadow: 0 0 5px #ff4da6;
+      outline: none;
+    }
+    button {
+      padding: 12px 20px;
+      background: #ff4da6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+    button:hover { background: #e63e94; }
+    button:active { transform: scale(0.97); }
+    #scoreDisplay { font-weight: bold; color: #ff4da6; }
+    #currentWord {
+      background: #ff4da6;
+      color: white;
+      display: inline-block;
+      padding: 8px 15px;
+      border-radius: 50px;
+      font-size: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 10px rgba(255, 20, 147, 0.4);
+      transition: all 0.2s ease;
+    }
+    #gameArea, #resultArea { display: none; }
+    #feedback {
+      font-size: 14px;
+      height: 18px;
+      margin-bottom: 8px;
+      color: #ff4da6;
+      min-height: 18px;
+      transition: opacity 0.3s ease;
+    }
+    /* Shake animation */
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-5px); }
+      100% { transform: translateX(0); }
+    }
+    /* Glow for correct */
+    .correctGlow {
+      box-shadow: 0 0 15px #ff4da6 !important;
+    }
+    /* Shake for wrong */
+    .shake {
+      animation: shake 0.3s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <!-- Word Input Form -->
+    <div id="wordForm">
+      <h2>Enter Words (one per line)</h2>
+      <textarea id="wordList" placeholder="Type each word on a new line..."></textarea>
+      <button id="startGame">Start Game</button>
+    </div>
+
+    <!-- Game Area -->
+    <div id="gameArea">
+      <h2 id="currentWord"></h2>
+      <div id="feedback"></div>
+      <input type="text" id="typedWord" autocomplete="off" placeholder="Type the word here...">
+      <p>Score: <span id="scoreDisplay">0</span></p>
+    </div>
+
+    <!-- Result Area -->
+    <div id="resultArea">
+      <h2 id="resultMessage"></h2>
+      <p>Final Score: <span id="finalScore">0</span></p>
+      <button id="restartGame">Try Again</button>
+    </div>
+  </div>
+
+  <script>
+    let words = [];
+    let score = 0;
+    let currentIndex = 0;
+
+    const wordForm = document.getElementById("wordForm");
+    const gameArea = document.getElementById("gameArea");
+    const resultArea = document.getElementById("resultArea");
+
+    const wordList = document.getElementById("wordList");
+    const startGameBtn = document.getElementById("startGame");
+    const currentWordEl = document.getElementById("currentWord");
+    const typedWord = document.getElementById("typedWord");
+    const scoreDisplay = document.getElementById("scoreDisplay");
+    const resultMessage = document.getElementById("resultMessage");
+    const finalScore = document.getElementById("finalScore");
+    const restartGameBtn = document.getElementById("restartGame");
+    const feedback = document.getElementById("feedback");
+
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+    function throttle(func, limit) {
+      let inThrottle;
+      return function(...args) {
+        if (!inThrottle) {
+          func.apply(this, args);
+          inThrottle = true;
+          setTimeout(() => inThrottle = false, limit);
+        }
+      };
+    }
+
+    function startGame() {
+      const inputWords = wordList.value.trim().split("\n").filter(w => w.trim() !== "");
+      if (inputWords.length === 0) {
+        alert("Please enter at least one word!");
+        return;
+      }
+      words = inputWords;
+      score = 0;
+      currentIndex = 0;
+      scoreDisplay.textContent = score;
+
+      wordForm.style.display = "none";
+      resultArea.style.display = "none";
+      gameArea.style.display = "block";
+
+      showWord();
+    }
+
+    function showWord() {
+      if (currentIndex < words.length) {
+        currentWordEl.textContent = words[currentIndex];
+        feedback.textContent = "";
+        typedWord.value = "";
+        typedWord.focus();
+      } else {
+        endGame();
+      }
+    }
+
+    function correctFeedback() {
+      currentWordEl.classList.add("correctGlow");
+      feedback.style.color = "#ff4da6";
+      feedback.textContent = "Correct!";
+      setTimeout(() => {
+        currentWordEl.classList.remove("correctGlow");
+        feedback.textContent = "";
+      }, 500);
+    }
+
+    function wrongFeedback() {
+      currentWordEl.classList.add("shake");
+      feedback.style.color = "red";
+      feedback.textContent = "Incorrect!";
+      setTimeout(() => {
+        currentWordEl.classList.remove("shake");
+        feedback.textContent = "";
+      }, 500);
+    }
+
+    function checkWord() {
+      if (typedWord.value.trim() === words[currentIndex]) {
+        updateScoreThrottled();
+        correctFeedback();
+      } else {
+        wrongFeedback();
+      }
+      currentIndex++;
+      showWord();
+    }
+
+    function updateScore() {
+      score++;
+      scoreDisplay.textContent = score;
+    }
+    const updateScoreThrottled = throttle(updateScore, 200);
+
+    function endGame() {
+      gameArea.style.display = "none";
+      resultArea.style.display = "block";
+      resultMessage.textContent = "Game Over!";
+      finalScore.textContent = score;
+    }
+
+    function restartGame() {
+      resultArea.style.display = "none";
+      wordForm.style.display = "block";
+      wordList.value = "";
+    }
+
+    startGameBtn.addEventListener("click", startGame);
+
+    typedWord.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        checkWord();
+      }
+    });
+
+    restartGameBtn.addEventListener("click", restartGame);
+  </script>
+</body>
+</html>
+
